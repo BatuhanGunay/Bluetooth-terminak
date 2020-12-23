@@ -1,0 +1,83 @@
+package com.example.bluetooth;
+
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothServerSocket;
+import android.bluetooth.BluetoothSocket;
+import android.content.ContentValues;
+import android.content.Intent;
+import android.database.sqlite.SQLiteDatabase;
+import android.icu.util.Output;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.inputmethod.InputContentInfo;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.time.DateTimeException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.os.Bundle;
+
+public class listele extends AppCompatActivity {
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_listele);
+
+        final EditText txtliste = (EditText) findViewById(R.id.txtliste);
+        final Button button = (Button) findViewById(R.id.button);
+        final ceritabani db = new ceritabani(getApplicationContext());
+
+        List<Sicaklik> sicaklikList = new ArrayList<Sicaklik>();
+        sicaklikList = db.getirsicakliklist();
+
+        StringBuilder sb = new StringBuilder();
+
+        for (Sicaklik _sicaklik : sicaklikList)
+        {
+            String icerik = "";
+            icerik = "Sicaklikdeger:"+_sicaklik.getSicaklıkdeger() +"\n\n"    ;
+            sb.append(icerik);
+        }
+
+        txtliste.setText(sb);
+
+
+
+
+        button.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                db.sil();
+                Toast.makeText(getApplicationContext(),"Veriler temizlendi",Toast.LENGTH_LONG).show();
+            }
+        });
+
+    }
+
+
+
+}

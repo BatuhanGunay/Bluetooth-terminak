@@ -1,0 +1,334 @@
+package com.example.bluetooth;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothServerSocket;
+import android.bluetooth.BluetoothSocket;
+import android.content.ContentValues;
+import android.content.Intent;
+import android.database.sqlite.SQLiteDatabase;
+import android.icu.util.Output;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
+import android.view.View;
+import android.view.inputmethod.InputContentInfo;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.time.DateTimeException;
+import java.util.Date;
+import java.util.Set;
+import java.util.UUID;
+
+public class MainActivity extends AppCompatActivity {
+    Button listen, dvc,send,save,listele;
+    ListView view;
+    TextView durum,mes;
+    EditText msg;
+    BluetoothAdapter bluetoothAdapter;
+    BluetoothDevice[] btarray;
+    SendReceive sendReceive ;
+    static final int State_Listing = 1;
+    static final int State_connecting = 2;
+    static final int State_connected = 3;
+    static final int State_connection_failed = 4;
+    static final int State_message_okuma=5;
+
+    int REQUEST_ENABLE_BLUETOOTH =1;
+    private static final String App_NAme = "BT";
+    private static final UUID My_uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"); //HATA OLURSA BURAYA BAK
+    private ceritabani c1;
+    private Date tarih;
+
+
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        findViewByIdes();
+        c1 = new ceritabani(this);
+
+
+        save.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                String sicaklikdeger = mes.getText().toString();
+                if (sicaklikdeger.isEmpty()){
+                    Toast.makeText(getApplicationContext(),"alanlar boş olamaz",Toast.LENGTH_LONG).show();
+                        return;
+                }
+
+                Sicaklik sicaklik = new Sicaklik(sicaklikdeger);
+                ceritabani db = new ceritabani(getApplicationContext());
+                long id = db.eklesicaklik(sicaklik);
+
+                if (id>0){
+                    Toast.makeText(getApplicationContext(),"kayıt başarılı"+id,Toast.LENGTH_LONG).show();
+                }
+                else
+                {
+                    Toast.makeText(getApplicationContext(),"kayıt başarısız",Toast.LENGTH_LONG).show();
+                }
+
+            }
+        });
+
+        listele.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(getApplicationContext(),listele.class);
+                startActivity(intent);
+
+            }
+        });
+
+        bluetoothAdapter=BluetoothAdapter.getDefaultAdapter();
+
+        if (!bluetoothAdapter.isEnabled()){
+            Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableIntent,REQUEST_ENABLE_BLUETOOTH);
+
+        }
+
+        implementListener();
+
+
+    }
+
+    private void implementListener() {
+        dvc.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Set<BluetoothDevice> bt =bluetoothAdapter.getBondedDevices();
+                String[] strings = new String[bt.size()];
+                btarray = new BluetoothDevice[bt.size()];
+                int index = 0;
+                if (bt.size()>0){
+                    for (BluetoothDevice device : bt){
+                        btarray[index] = device;
+                        strings[index] = device.getName();
+                        index++;
+
+                    }
+                    ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(getApplicationContext(),android.R.layout.simple_list_item_1,strings);
+                    view.setAdapter(arrayAdapter);
+                }
+            }
+        });
+
+
+        listen.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ServerClass server = new ServerClass();
+                server.start();
+            }
+        });
+
+        view.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                ClientClass clientClass = new ClientClass(btarray[position]);
+                clientClass.start();
+                durum.setText("Baglanılıyor");
+            }
+        });
+        send.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String string = String.valueOf(msg.getText());
+                sendReceive.write(string.getBytes());
+
+            }
+        });
+
+
+    }
+
+    Handler handler = new Handler(new Handler.Callback() {
+        @Override
+        public boolean handleMessage(@NonNull Message msg) {
+            switch (msg.what)
+            {
+                case State_Listing:
+                    durum.setText("listeleniyor");
+                    break;
+                case  State_connecting:
+                 durum.setText("Bağlanılıyor");
+                 break;
+                case State_connected:
+                    durum.setText("baglanıldı");
+                    break;
+                case State_connection_failed:
+                    durum.setText("bağlantı hatası");
+                    break;
+                case State_message_okuma:
+                    byte[] readBuff = (byte[]) msg.obj;
+                    String tempMsg = new String(readBuff,0,msg.arg1);
+                    mes.setText(tempMsg);
+
+                    break;
+            }
+
+
+            return true;
+        }
+    });
+
+    private void findViewByIdes(){
+        listen =(Button) findViewById(R.id.listen);
+        dvc = (Button) findViewById(R.id.dvc);
+        send = (Button) findViewById(R.id.send);
+        view = (ListView) findViewById(R.id.view);
+        durum = (TextView) findViewById(R.id.durum);
+        mes = (TextView)findViewById(R.id.mes);
+        msg = (EditText) findViewById(R.id.msg);
+        save = (Button)findViewById(R.id.save);
+        listele = (Button) findViewById(R.id.listele);
+
+    }
+
+    private class ServerClass extends  Thread{
+        private BluetoothServerSocket serverSocket;
+        public   ServerClass(){
+            try {
+                serverSocket = bluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord(App_NAme,My_uuid);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        public void run(){
+            BluetoothSocket socket = null;
+            while (socket==null){
+                try {
+                    Message message = Message.obtain();
+                    message.what=State_connecting;
+                    handler.sendMessage(message);
+                    socket=serverSocket.accept();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    Message message = Message.obtain();
+                    message.what=State_connection_failed;
+                    handler.sendMessage(message);
+
+                }
+                if (socket != null){
+                    Message message = Message.obtain();
+                    message.what=State_connected;
+                    handler.sendMessage(message);
+
+                    sendReceive = new SendReceive(socket);
+                    sendReceive.start();
+
+
+
+                    break;
+                }
+
+            }
+        }
+    }
+
+
+    private class  ClientClass extends Thread{
+
+        private BluetoothSocket socket;
+
+        public ClientClass(BluetoothDevice device1){
+
+            try {
+                socket=device1.createRfcommSocketToServiceRecord(My_uuid);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+        }
+
+        public void run(){
+            try {
+                socket.connect();
+                Message message = Message.obtain();
+                message.what = State_connected;
+                handler.sendMessage(message);
+
+                sendReceive = new SendReceive(socket);
+                sendReceive.start();
+
+            } catch (IOException e) {
+                e.printStackTrace();
+                Message message = Message.obtain();
+                message.what = State_connection_failed;
+                handler.sendMessage(message);
+            }
+        }
+    }
+
+    private class SendReceive extends Thread{
+
+        private final BluetoothSocket bluetoothSocket;
+        private final InputStream inputStream;
+        private final OutputStream outputStream;
+
+        public SendReceive (BluetoothSocket socket){
+            bluetoothSocket = socket;
+            InputStream  tempIn = null;
+            OutputStream tempOut =null;
+            try {
+                tempIn = bluetoothSocket.getInputStream();
+                tempOut = bluetoothSocket.getOutputStream();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            inputStream = tempIn;
+            outputStream = tempOut;
+
+        }
+
+        public void run(){
+
+            byte[] buffer =new byte[1024];
+            int bytes;
+            while(true){
+                try {
+                   bytes = inputStream.read(buffer);
+                   handler.obtainMessage(State_message_okuma,bytes,-1,buffer).sendToTarget();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        public void write(byte[] bytes){
+
+            try {
+                outputStream.write(bytes);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+
+    }
+
+
+
+
+
+
+
+}

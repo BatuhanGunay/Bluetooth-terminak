@@ -1,0 +1,28 @@
+package com.example.bluetooth;
+
+public class Sicaklik {
+
+
+    private String sicaklıkdeger;
+
+    public Sicaklik(){
+
+    }
+
+    public Sicaklik(String sicaklikdeger){
+
+        sicaklıkdeger = sicaklikdeger;
+    }
+
+    public void setSicaklıkdeger(String sicaklıkdeger) {
+        this.sicaklıkdeger = sicaklıkdeger;
+    }
+
+    public String getSicaklıkdeger() {
+        return sicaklıkdeger;
+    }
+
+
+
+
+}

@@ -1,0 +1,76 @@
+package com.example.bluetooth;
+
+import android.content.ContentValues;
+import android.content.Context;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
+
+import androidx.annotation.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class ceritabani extends SQLiteOpenHelper {
+    private static  final String vt_adi = "Sicaklik";
+    private static  final String s_tablo = "tbl_sc";
+    private static final int vt_ver =1;
+
+    public ceritabani(@Nullable Context context ) {
+        super(context, vt_adi, null,vt_ver);
+    }
+
+    @Override
+    public void onCreate(SQLiteDatabase db) {
+        String  sql_create = "CREATE TABLE "+ s_tablo +"( id INTEGER PRIMARY KEY AUTOINCREMENT, sicaklikdeger TEXT(20))";
+    db.execSQL(sql_create);
+
+
+    }
+
+    @Override
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        db.execSQL("DROP TABLE IF EXISTS "+s_tablo);
+
+    }
+
+    public long eklesicaklik(Sicaklik sicaklik) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues cv = new ContentValues();
+        cv.put("sicaklikdeger",sicaklik.getSicaklıkdeger());
+        long id = db.insert(s_tablo,null,cv);
+        return id;
+    }
+
+    public List<Sicaklik> getirsicakliklist() {
+        List<Sicaklik> sicaklikList = new ArrayList<Sicaklik>();
+        SQLiteDatabase db = this.getReadableDatabase();
+        String sqlsorgusu = "Select * from "+ s_tablo;
+
+        Cursor c = db.rawQuery(sqlsorgusu,null);
+        int siranodeger = c.getColumnIndex("sicaklikdeger");
+
+        try {
+            while(c.moveToNext()){
+                Sicaklik _sicaklik = new Sicaklik();
+                _sicaklik.setSicaklıkdeger(c.getString(siranodeger));
+                sicaklikList.add(_sicaklik);
+
+            }
+
+        }
+        finally {
+            c.close();
+            db.close();
+        }
+
+
+        return sicaklikList;
+    }
+
+    public void sil(){
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(s_tablo,null,null);
+        db.close();
+    }
+}
